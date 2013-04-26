@@ -31,8 +31,10 @@ script_setopt "--sources|-s" "PATH" ROS_PKG_SRCS . \
   "path to the ROS package sources"
 script_setopt "--maintainer|-m" "MAINTAINER" ROS_PKG_MAINTAINER \
   "$ROS_PKG_MAINTAINER" "package maintainer"
-script_setopt "--upload|-u" "HOST" ROS_PKG_UPLOAD "" \
-  "source package upload host"
+script_setopt "--increase-version|-i" "" ROS_PKG_INC "false" \
+  "increase package version"
+script_setopt "--include-orig|-o" "" ROS_PKG_ORIG "false" \
+  "include original sources"
 script_setopt "--upload|-u" "HOST" ROS_PKG_UPLOAD "" \
   "source package upload host"
 
@@ -63,25 +65,55 @@ fi
 
 [ -d "$ROS_PKG_SRCS/debian" ] || \
   message_exit "Debian directory $ROS_PKG_SRCS/debian not found"
-[ -f "$ROS_PKG_SRCS/debian/changelog" ] || \
-  message_exit "Debian changelog $ROS_PKG_SRCS/debian/changelog not found"
+ROS_PGK_CLOG="$ROS_PKG_SRCS/debian/changelog"
+[ -f "$ROS_PGK_CLOG" ] || \
+  message_exit "Debian changelog $ROS_PGK_CLOG not found"
 
-message_start "Parsing changelog $ROS_PKG_SRCS/debian/changelog"
-ROS_PKG_VERSION="`dpkg-parsechangelog -l$ROS_PKG_SRCS/debian/changelog | \
+message_start "Parsing changelog $ROS_PGK_CLOG"
+ROS_PKG_VERSION="`dpkg-parsechangelog -l$ROS_PGK_CLOG | \
   grep "^Version:" | sed s/"^Version:\s\+\(.*\)$"/"\1"/`"
+message "Current package version is $ROS_PKG_VERSION."
+
+if [ -n "`echo "$ROS_PKG_VERSION" | grep "\-[0-9]*[a-z]\+$"`" ]; then
+  ROS_PKG_VERSION="`echo $ROS_PKG_VERSION | \
+    sed s/"^\(.*\-[0-9]*\)[a-z]\+$"/"\1"/`~${ROS_DEB_DISTRO}0"
+  ROS_DCH_ARGS="-b -v \"$ROS_PKG_VERSION\""
+elif [ -n "`echo "$ROS_PKG_VERSION" | grep "\-[0-9]\+$"`" ]; then
+  ROS_PKG_VERSION="$ROS_PKG_VERSION~${ROS_DEB_DISTRO}0"
+  ROS_DCH_ARGS="-b -v \"$ROS_PKG_VERSION\""
+elif [ -n "`echo "$ROS_PKG_VERSION" | grep "\~[a-z]\+[0-9]\+$"`" ]; then
+  ROS_SED_MATCH="~[a-z]\+\([0-9]\+\)) [a-z]\+;"
+  ROS_SED_REPLACE="~$ROS_DEB_DISTRO\1) $ROS_DEB_DISTRO;"
+  execute "sed -i s/\"$ROS_SED_MATCH\"/\"$ROS_SED_REPLACE\"/ $ROS_PGK_CLOG"
+  if true ROS_PKG_INC; then
+    ROS_DCH_ARGS="-l $ROS_DEB_DISTRO"
+  else
+    ROS_DCH_ARGS=""
+  fi
+else
+  message_exit "Version is inconclusive. Please edit changelog by hand."
+fi
+
+if [ -n "$ROS_DCH_ARGS" ]; then
+  ROS_DCH_VARS="DEBEMAIL=\"$ROS_PKG_MAINTAINER\""
+  ROS_DCH_ARGS="$ROS_DCH_ARGS --force-distribution -D \"$ROS_DEB_DISTRO\""
+  ROS_DCH_MSG="distributed by ros-disthelper"
+  ROS_DCH_ARGS="$ROS_DCH_ARGS \"$ROS_DCH_MSG\""
+  execute "cd $ROS_PKG_SRCS && $ROS_DCH_VARS dch $ROS_DCH_ARGS"
+fi
+
+ROS_PKG_VERSION="`dpkg-parsechangelog -l$ROS_PGK_CLOG | \
+  grep "^Version:" | sed s/"^Version:\s\+\(.*\)$"/"\1"/`"
+message "New package version is $ROS_PKG_VERSION."
 message_end
-[ -z "`echo "$ROS_PKG_VERSION" | grep "~.*$"`" ] || \
-  message_exit "Version is $ROS_PKG_VERSION. Please edit changelog by hand."
-ROS_PKG_VERSION="$ROS_PKG_VERSION~$ROS_DEB_DISTRO"
 
 message_start "Building $ROS_DEB_DISTRO source package in $ROS_PKG_SRCS"
-ROS_DCH_VARS="DEBEMAIL=\"$ROS_PKG_MAINTAINER\""
-ROS_DCH_ARGS="-b -v \"$ROS_PKG_VERSION\""
-ROS_DCH_ARGS="$ROS_DCH_ARGS --force-distribution -D \"$ROS_DEB_DISTRO\""
-ROS_DCH_MSG="distributed for $ROS_DEB_DISTRO by ros-disthelper"
-ROS_DCH_ARGS="$ROS_DCH_ARGS \"$ROS_DCH_MSG\""
-execute "cd $ROS_PKG_SRCS && $ROS_DCH_VARS dch $ROS_DCH_ARGS"
-execute "cd $ROS_PKG_SRCS && dpkg-buildpackage -S -sa"
+if true ROS_PKG_ORIG; then
+  ROS_DPKG_ARGS="-sa"
+else
+  ROS_DPKG_ARGS="-sd"
+fi
+execute "cd $ROS_PKG_SRCS && dpkg-buildpackage -S $ROS_DPKG_ARGS"
 message_end
 
 if [ -n "$ROS_PKG_UPLOAD" ]; then
