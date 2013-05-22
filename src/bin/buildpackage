@@ -78,6 +78,10 @@ if [ -n "`echo "$ROS_PKG_VERSION" | grep "\-[0-9]*[a-z]\+$"`" ]; then
   ROS_PKG_VERSION="`echo $ROS_PKG_VERSION | \
     sed s/"^\(.*\-[0-9]*\)[a-z]\+$"/"\1"/`~${ROS_DEB_DISTRO}0"
   ROS_DCH_ARGS="-b -v \"$ROS_PKG_VERSION\""
+elif [ -n "`echo "$ROS_PKG_VERSION" | grep "\-[0-9]*~[a-z]\+$"`" ]; then
+  ROS_PKG_VERSION="`echo $ROS_PKG_VERSION | \
+    sed s/"^\(.*\-[0-9]*\)~[a-z]\+$"/"\1"/`~${ROS_DEB_DISTRO}0"
+  ROS_DCH_ARGS="-b -v \"$ROS_PKG_VERSION\""
 elif [ -n "`echo "$ROS_PKG_VERSION" | grep "\-[0-9]\+$"`" ]; then
   ROS_PKG_VERSION="$ROS_PKG_VERSION~${ROS_DEB_DISTRO}0"
   ROS_DCH_ARGS="-b -v \"$ROS_PKG_VERSION\""
