@@ -17,20 +17,20 @@ remake_project(
 
 remake_pack_deb(
   ARCH all
-  DEPENDS ubash dpkg-dev
+  DEPENDS ubash dpkg-dev devscripts
 )
 
 remake_distribute_deb(
   DISTRIBUTION lucid
   SECTION devel
   UPLOAD ppa:kralf/ros
-  DEPENDS ubash dpkg-dev remake
+  DEPENDS ubash dpkg-dev devscripts remake
   PASS CMAKE_BUILD_TYPE ROS_DISTHELPER_GIT_REVISION
 )
 remake_distribute_deb(
   DISTRIBUTION precise
   SECTION devel
   UPLOAD ppa:kralf/ros
-  DEPENDS ubash dpkg-dev remake
+  DEPENDS ubash dpkg-dev devscripts remake
   PASS CMAKE_BUILD_TYPE ROS_DISTHELPER_GIT_REVISION
 )

@@ -1,3 +1,9 @@
+ros-disthelper (0.1-4) unstable; urgency=low
+
+  * Added devscripts build dependency
+
+ -- Ralf Kaestner <ralf.kaestner@gmail.com>  Wed, 19 Jun 2013 20:39:00 +0100
+
 ros-disthelper (0.1-3) unstable; urgency=low
 
   * Added version format support for fuerte packages
