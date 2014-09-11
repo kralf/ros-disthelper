@@ -34,3 +34,10 @@ remake_distribute_deb(
   DEPENDS ubash dpkg-dev devscripts remake
   PASS CMAKE_BUILD_TYPE ROS_DISTHELPER_GIT_REVISION
 )
+remake_distribute_deb(
+  DISTRIBUTION trusty
+  SECTION devel
+  UPLOAD ppa:kralf/ros
+  DEPENDS ubash dpkg-dev devscripts remake
+  PASS CMAKE_BUILD_TYPE ROS_DISTHELPER_GIT_REVISION
+)
