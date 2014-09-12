@@ -1,1 +1,1 @@
-remake_add_scripts(buildpackage)
+remake_add_scripts(aptsources buildpackage)

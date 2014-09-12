@@ -1,3 +1,9 @@
+ros-disthelper (0.1-6) unstable; urgency=low
+
+  * Added aptsources script for downloading source packages
+
+ -- Ralf Kaestner <ralf.kaestner@gmail.com>  Fri, 12 Sep 2014 16:38:00 +0100
+ 
 ros-disthelper (0.1-5) unstable; urgency=low
 
   * Release distribution for Ubuntu Trusty Tahr

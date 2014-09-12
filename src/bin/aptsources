@@ -1,0 +1,84 @@
+#!/bin/bash
+############################################################################
+#    Copyright (C) 2013 by Ralf Kaestner                                   #
+#    ralf.kaestner@gmail.com                                               #
+#                                                                          #
+#    This program is free software; you can redistribute it and or modify  #
+#    it under the terms of the GNU General Public License as published by  #
+#    the Free Software Foundation; either version 2 of the License, or     #
+#    (at your option) any later version.                                   #
+#                                                                          #
+#    This program is distributed in the hope that it will be useful,       #
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of        #
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         #
+#    GNU General Public License for more details.                          #
+#                                                                          #
+#    You should have received a copy of the GNU General Public License     #
+#    along with this program; if not, write to the                         #
+#    Free Software Foundation, Inc.,                                       #
+#    59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             #
+############################################################################
+
+. ubash
+
+ROS_PKG_MAINTAINER="`gpg --list-keys | grep -m 1 "^uid" | \
+  sed  s/"^uid\s\+\(.*\)$"/"\1"/`"
+
+script_init "Download ROS source package(s) via APT" \
+  "PKG" ROS_PKG_NAME
+
+script_setopt "--destination|-d" "PATH" ROS_PKG_DEST . \
+  "destination path for ROS package sources"
+script_setopt "--recursive|-r" "" ROS_PKG_RECURSIVE "false" \
+  "recursively download dependencies"
+
+script_checkopts "$@"
+
+if [ ! -d "$ROS_PKG_DEST" ]; then
+  message "Creating destination directory $ROS_PKG_DEST"
+  execute "mkdir -p $ROS_PKG_DEST"
+fi
+
+ROS_SRC_PKGS=($ROS_PKG_NAME)
+while [ ${#ROS_SRC_PKGS[@]} -gt 0 ]; do
+  ROS_SRC_VERSIONS=(`apt-cache showsrc ${ROS_SRC_PKGS[0]} 2> /dev/null | \
+    grep '^Version:' | sed 's/^Version: //'`)
+  
+  if [ -z $ROS_SRC_VERSIONS ]; then
+    message_exit "ROS source package unavailable for ${ROS_SRC_PKGS[0]}"
+  fi
+  
+  ROS_SRC_MAX_VERSION=${ROS_SRC_VERSIONS[0]}
+  ROS_IND_VERSION=0
+  ROS_IND_MAX_VERSION=0
+  for ROS_SRC_VERSION in ${ROS_SRC_VERSIONS[@]:1}; do
+    ROS_IND_VERSION=`expr $ROS_IND_VERSION + 1`
+    dpkg --compare-versions $ROS_SRC_VERSION gt $ROS_SRC_MAX_VERSION && \
+      ROS_IND_MAX_VERSION=$ROS_IND_VERSION && \
+      ROS_SRC_MAX_VERSION=$ROS_SRC_VERSION
+  done
+  ROS_SRC_VERSION=$ROS_SRC_MAX_VERSION
+  
+  if [ "$ROS_IND_MAX_VERSION" -gt 0 ]; then
+    ROS_SRC_DSC=`apt-cache showsrc ${ROS_SRC_PKGS[0]} 2> /dev/null | \
+      sed $ROS_IND_MAX_VERSION',/^$/d' | grep -m 1 '\.dsc$' | cut -d' ' -f4`
+  else
+    ROS_SRC_DSC=`apt-cache showsrc ${ROS_SRC_PKGS[0]} 2> /dev/null | \
+      sed '/^$/q' | grep -m 1 '\.dsc$' | cut -d' ' -f4`
+  fi
+
+  if [ ! -f "$ROS_PKG_DEST/$ROS_SRC_DSC" ]; then
+    message "Downloading ROS source package ${ROS_SRC_PKGS[0]} $ROS_SRC_VERSION"
+    execute "cd $ROS_PKG_DEST && apt-get source ${ROS_SRC_PKGS[0]}"
+  fi
+  
+  if true ROS_PKG_RECURSIVE; then
+    ROS_SRC_DEPS=(`apt-cache depends ${ROS_SRC_PKGS[0]} | \
+      grep '^  Depends:' | sed 's/^  Depends: //' | grep '^ros-'`)
+    ROS_SRC_PKGS=(${ROS_SRC_DEPS[@]} ${ROS_SRC_PKGS[@]:1})
+  else
+    ROS_SRC_PKGS=(${ROS_SRC_PKGS[@]:1})
+  fi
+done
+
+log_clean
