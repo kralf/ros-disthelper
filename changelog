@@ -1,3 +1,12 @@
+ros-disthelper (0.1-7) unstable; urgency=low
+
+  * aptsources now checks presence of requested source package's dsc file
+    in the current directory before downloading (such as to allow for a
+    dedicated use of the destination directory for package downloading,
+    whereas considering existing packages in the current working directory)
+
+ -- Ralf Kaestner <ralf.kaestner@gmail.com>  Mon, 15 Sep 2014 11:23:00 +0100
+ 
 ros-disthelper (0.1-6) unstable; urgency=low
 
   * Added aptsources script for downloading source packages

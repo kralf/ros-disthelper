@@ -67,7 +67,7 @@ while [ ${#ROS_SRC_PKGS[@]} -gt 0 ]; do
       sed '/^$/q' | grep -m 1 '\.dsc$' | cut -d' ' -f4`
   fi
 
-  if [ ! -f "$ROS_PKG_DEST/$ROS_SRC_DSC" ]; then
+  if [ ! -f "$ROS_SRC_DSC" ] && [ ! -f "$ROS_PKG_DEST/$ROS_SRC_DSC" ]; then
     message "Downloading ROS source package ${ROS_SRC_PKGS[0]} $ROS_SRC_VERSION"
     execute "cd $ROS_PKG_DEST && apt-get source ${ROS_SRC_PKGS[0]}"
   fi
