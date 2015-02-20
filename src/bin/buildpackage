@@ -25,10 +25,13 @@ ROS_PKG_MAINTAINER="`gpg --list-keys | grep -m 1 "^uid" | \
   sed  s/"^uid\s\+\(.*\)$"/"\1"/`"
 
 script_init "Build binary or source packages from ROS sources" \
-  "DISTRO" ROS_DEB_DISTRO `lsb_release -sc` "Debian distribution"
+  "DEB_DISTRO" ROS_DEB_DISTRO `lsb_release -sc` "Debian distribution" \
+  "ROS_DISTRO" ROS_DISTRO `ls /opt/ros | head -n 1` "ROS distribution"
 
 script_setopt "--sources|-s" "PATH" ROS_PKG_SRCS . \
   "path to the ROS package sources"
+script_setopt "--bloom|-b" "" ROS_PKG_BLOOM "false" \
+  "enforce the use of bloom"
 script_setopt "--maintainer|-m" "MAINTAINER" ROS_PKG_MAINTAINER \
   "$ROS_PKG_MAINTAINER" "package maintainer"
 script_setopt "--increase-version|-i" "" ROS_PKG_INC "false" \
@@ -48,7 +51,7 @@ fs_abspath $ROS_PKG_SRCS ROS_PKG_SRCS
 if [ -d "$ROS_PKG_SRCS/debian" ]; then
   message "Source directory is in standard Debian format"
   ROS_DEB_DIR="$ROS_PKG_SRCS/debian"
-elif [ -f "$ROS_PKG_SRCS/setup.py" ]; then
+elif [ -f "$ROS_PKG_SRCS/setup.py" ] && false ROS_PKG_BLOOM; then
   message "Source directory is in Python distutils format"
 
   if [ ! -d "$ROS_PKG_SRCS/deb_dist" ]; then
@@ -59,6 +62,57 @@ elif [ -f "$ROS_PKG_SRCS/setup.py" ]; then
   fi
 
   ROS_PKG_SRCS="`find $ROS_PKG_SRCS/deb_dist -mindepth 1 -maxdepth 1 -type d`"
+elif [ -f "$ROS_PKG_SRCS/package.xml" ]; then
+  message "Source directory is in ROS package format"
+  
+  ROS_PKG_XML="$ROS_PKG_SRCS/package.xml"
+  ROS_PKG_CONTENT="`ls $ROS_PKG_SRCS`"
+  ROS_PKG_BLOOM_DIR="$ROS_PKG_SRCS/bloom"
+  
+  message_start "Parsing package manifest $ROS_PKG_XML"
+  ROS_PKG_NAME="`grep "<name>[^<]\+</name>" $ROS_PKG_XML | \
+    sed s:"<name>\([^<]\+\)</name>":"\1": | sed s:"\s"::g`"
+  message "ROS package name is $ROS_PKG_NAME"
+  ROS_PKG_VERSION="`grep "<version>[^<]\+</version>" $ROS_PKG_XML | \
+    sed s:"<version>\([^<]\+\)</version>":"\1": | sed s:"\s"::g`"
+  message "ROS package version is $ROS_PKG_VERSION"
+  message_end
+
+  ROS_UPSTREAM_NAME="`echo $ROS_PKG_NAME | sed s/_/-/g`"
+  ROS_UPSTREAM_VERSION="$ROS_PKG_VERSION"
+  ROS_UPSTREAM_PKG="ros-$ROS_DISTRO-$ROS_UPSTREAM_NAME"
+  ROS_UPSTREAM_DIR="$ROS_UPSTREAM_PKG-$ROS_UPSTREAM_VERSION"
+  ROS_UPSTREAM_SRCS="$ROS_PKG_BLOOM_DIR/$ROS_UPSTREAM_DIR"
+  ROS_UPSTREAM_TAR="${ROS_UPSTREAM_PKG}_$ROS_UPSTREAM_VERSION.orig.tar.bz2"
+  
+  if [ ! -d "$ROS_PKG_BLOOM_DIR" ]; then    
+    message_start "Cloning package sources from $ROS_PKG_SRCS"
+    execute "mkdir -p $ROS_UPSTREAM_SRCS"
+    for ROS_PKG_ITEM in $ROS_PKG_CONTENT; do
+      execute "cp -a $ROS_PKG_SRCS/$ROS_PKG_ITEM $ROS_UPSTREAM_SRCS"
+    done
+    message_end
+  fi
+  
+  ROS_TAR_ARGS="-cjf $ROS_UPSTREAM_TAR $ROS_UPSTREAM_DIR"
+    
+  if [ ! -f "$ROS_PKG_BLOOM_DIR/$ROS_UPSTREAM_TAR" ]; then
+    message_start "Creating upstream tarball from $ROS_PKG_SRCS"
+    execute "cd $ROS_PKG_BLOOM_DIR && tar $ROS_TAR_ARGS"
+    message_end    
+  fi
+  
+  ROS_BLOOM_ARGS="rosdebian --os-name ubuntu"
+  ROS_BLOOM_ARGS="$ROS_BLOOM_ARGS --os-version $ROS_DEB_DISTRO"
+  ROS_BLOOM_ARGS="$ROS_BLOOM_ARGS --ros-distro $ROS_DISTRO"
+  
+  if [ ! -d "$ROS_UPSTREAM_SRCS/debian" ]; then
+    message_start "Generating Debian packaging files in $ROS_PKG_SRCS"
+    execute "cd $ROS_UPSTREAM_SRCS && bloom-generate $ROS_BLOOM_ARGS"
+    message_end    
+  fi
+  
+  ROS_PKG_SRCS="$ROS_UPSTREAM_SRCS"
 else
   message_exit "Source format is unknown"
 fi
@@ -72,7 +126,7 @@ ROS_PGK_CLOG="$ROS_PKG_SRCS/debian/changelog"
 message_start "Parsing changelog $ROS_PGK_CLOG"
 ROS_PKG_VERSION="`dpkg-parsechangelog -l$ROS_PGK_CLOG | \
   grep "^Version:" | sed s/"^Version:\s\+\(.*\)$"/"\1"/`"
-message "Current package version is $ROS_PKG_VERSION."
+message "Current package version is $ROS_PKG_VERSION"
 
 if [ -n "`echo "$ROS_PKG_VERSION" | grep "\-[0-9]*[a-z]\+$"`" ]; then
   ROS_PKG_VERSION="`echo $ROS_PKG_VERSION | \
@@ -108,7 +162,7 @@ fi
 
 ROS_PKG_VERSION="`dpkg-parsechangelog -l$ROS_PGK_CLOG | \
   grep "^Version:" | sed s/"^Version:\s\+\(.*\)$"/"\1"/`"
-message "New package version is $ROS_PKG_VERSION."
+message "New package version is $ROS_PKG_VERSION"
 message_end
 
 message_start "Building $ROS_DEB_DISTRO source package in $ROS_PKG_SRCS"
