@@ -23,21 +23,21 @@ remake_pack_deb(
 remake_distribute_deb(
   DISTRIBUTION lucid
   SECTION devel
-  UPLOAD ppa:kralf/ros
+  UPLOAD ppa:kralf/asl
   DEPENDS ubash dpkg-dev devscripts remake
   PASS CMAKE_BUILD_TYPE ROS_DISTHELPER_GIT_REVISION
 )
 remake_distribute_deb(
   DISTRIBUTION precise
   SECTION devel
-  UPLOAD ppa:kralf/ros
+  UPLOAD ppa:kralf/asl
   DEPENDS ubash dpkg-dev devscripts remake
   PASS CMAKE_BUILD_TYPE ROS_DISTHELPER_GIT_REVISION
 )
 remake_distribute_deb(
   DISTRIBUTION trusty
   SECTION devel
-  UPLOAD ppa:kralf/ros
+  UPLOAD ppa:kralf/asl
   DEPENDS ubash dpkg-dev devscripts remake
   PASS CMAKE_BUILD_TYPE ROS_DISTHELPER_GIT_REVISION
 )
