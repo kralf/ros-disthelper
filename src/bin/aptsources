@@ -24,8 +24,8 @@
 ROS_PKG_MAINTAINER="`gpg --list-keys | grep -m 1 "^uid" | \
   sed  s/"^uid\s\+\(.*\)$"/"\1"/`"
 
-script_init "Download ROS source package(s) via APT" \
-  "PKG" ROS_PKG_NAME
+script_init_array "Download ROS source package(s) via APT" \
+  "PKG" ROS_PKG_NAMES "*.dsc" "ROS source package(s) to download"
 
 script_setopt "--destination|-d" "PATH" ROS_PKG_DEST . \
   "destination path for ROS package sources"
@@ -39,13 +39,19 @@ if [ ! -d "$ROS_PKG_DEST" ]; then
   execute "mkdir -p $ROS_PKG_DEST"
 fi
 
-ROS_SRC_PKGS=($ROS_PKG_NAME)
+ROS_SRC_PKGS=(${ROS_PKG_NAMES[@]})
 while [ ${#ROS_SRC_PKGS[@]} -gt 0 ]; do
-  ROS_SRC_VERSIONS=(`apt-cache showsrc ${ROS_SRC_PKGS[0]} 2> /dev/null | \
+  if [ -r "${ROS_SRC_PKGS[0]}" ]; then
+    ROS_SRC_PKG=`grep '^Binary:' ${ROS_SRC_PKGS[0]} | sed 's/^Binary: //'`
+  else
+    ROS_SRC_PKG=${ROS_SRC_PKGS[0]}
+  fi
+  
+  ROS_SRC_VERSIONS=(`apt-cache showsrc $ROS_SRC_PKG 2> /dev/null | \
     grep '^Version:' | sed 's/^Version: //'`)
   
   if [ -z $ROS_SRC_VERSIONS ]; then
-    message_exit "ROS source package unavailable for ${ROS_SRC_PKGS[0]}"
+    message_exit "ROS source package unavailable for $ROS_SRC_PKG"
   fi
   
   ROS_SRC_MAX_VERSION=${ROS_SRC_VERSIONS[0]}
@@ -60,20 +66,20 @@ while [ ${#ROS_SRC_PKGS[@]} -gt 0 ]; do
   ROS_SRC_VERSION=$ROS_SRC_MAX_VERSION
   
   if [ "$ROS_IND_MAX_VERSION" -gt 0 ]; then
-    ROS_SRC_DSC=`apt-cache showsrc ${ROS_SRC_PKGS[0]} 2> /dev/null | \
+    ROS_SRC_DSC=`apt-cache showsrc $ROS_SRC_PKG 2> /dev/null | \
       sed $ROS_IND_MAX_VERSION',/^$/d' | grep -m 1 '\.dsc$' | cut -d' ' -f4`
   else
-    ROS_SRC_DSC=`apt-cache showsrc ${ROS_SRC_PKGS[0]} 2> /dev/null | \
+    ROS_SRC_DSC=`apt-cache showsrc $ROS_SRC_PKG 2> /dev/null | \
       sed '/^$/q' | grep -m 1 '\.dsc$' | cut -d' ' -f4`
   fi
 
   if [ ! -f "$ROS_SRC_DSC" ] && [ ! -f "$ROS_PKG_DEST/$ROS_SRC_DSC" ]; then
-    message "Downloading ROS source package ${ROS_SRC_PKGS[0]} $ROS_SRC_VERSION"
-    execute "cd $ROS_PKG_DEST && apt-get source ${ROS_SRC_PKGS[0]}"
+    message "Downloading ROS source package $ROS_SRC_PKG $ROS_SRC_VERSION"
+    execute "cd $ROS_PKG_DEST && apt-get source $ROS_SRC_PKG"
   fi
   
   if true ROS_PKG_RECURSIVE; then
-    ROS_SRC_DEPS=(`apt-cache depends ${ROS_SRC_PKGS[0]} | \
+    ROS_SRC_DEPS=(`apt-cache depends $ROS_SRC_PKG | \
       grep '^  Depends:' | sed 's/^  Depends: //' | grep '^ros-'`)
     ROS_SRC_PKGS=(${ROS_SRC_DEPS[@]} ${ROS_SRC_PKGS[@]:1})
   else
